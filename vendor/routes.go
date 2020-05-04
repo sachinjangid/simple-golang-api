@@ -1,10 +1,10 @@
-package src
+package vendor
 
 import (
 	"net/http"
 
+	"controller"
 	"github.com/gorilla/mux"
-	"github.com/simple-golang-api/src/controller"
 )
 
 // APIRoutes :
@@ -12,6 +12,7 @@ func APIRoutes(r *mux.Router) {
 
 	r.HandleFunc("/", testFunc)
 
+	r.HandleFunc("/login", controller.UserLogin)
 	r.HandleFunc("/list-users", controller.GetUsers)
 }
 

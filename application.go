@@ -5,16 +5,18 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/simple-golang-api/src"
-
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
+	"github.com/simple-golang-api/vendor"
 )
 
 func main() {
+	// load env variables
+	godotenv.Load(".env")
 
 	// Initiate routes and setup
 	r := mux.NewRouter()
-	src.APIRoutes(r)
+	vendor.APIRoutes(r)
 
 	// Bind to a port and pass our router in
 	fmt.Println("Running server")
