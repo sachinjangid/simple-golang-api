@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simple-golang-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: simple-golang-service
+  template:
+    metadata:
+      labels:
+        app: simple-golang-service
+    spec:
+      containers:
+      - name: simple-golang-service
+        image: simple-golang-service:latest
+        ports:
+        - containerPort: 8080
