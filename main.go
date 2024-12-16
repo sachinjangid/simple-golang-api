@@ -5,20 +5,21 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/simple-golang-api/vendor"
+	"github.com/simple-golang-api/user"
 )
 
 func main() {
 	// load env variables
 	godotenv.Load(".env")
 
+	route := gin.Default()
 	// Initiate routes and setup
-	r := mux.NewRouter()
-	vendor.APIRoutes(r)
+
+	user.APIRoutes(route)
 
 	// Bind to a port and pass our router in
 	fmt.Println("Running server")
-	log.Fatal(http.ListenAndServe(":8000", r))
+	log.Fatal(http.ListenAndServe(":8080", route))
 }

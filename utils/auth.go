@@ -2,9 +2,12 @@ package utils
 
 import (
 	"fmt"
-	jwt "github.com/dgrijalva/jwt-go"
 	"os"
 	"strings"
+
+	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 )
 
 // ValidateJWT :
@@ -26,4 +29,9 @@ func ValidateJWT(token string) (interface{}, error) {
 	})
 
 	return tokenData.Claims, err
+}
+
+func Bind(c *gin.Context, obj interface{}) error {
+	b := binding.Default(c.Request.Method, c.ContentType())
+	return c.ShouldBindWith(obj, b)
 }
