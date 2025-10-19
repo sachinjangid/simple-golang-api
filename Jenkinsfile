@@ -2,117 +2,95 @@ pipeline {
     agent any
     
     environment {
-        GO_VERSION = '1.25'
-        DOCKER_REGISTRY = 'your-docker-registry.com'
+        DOCKER_REGISTRY = 'docker.io'
+        DOCKER_USERNAME = 'sachinjangid'
         PROJECT_NAME = 'simple-golang-api'
     }
     
     stages {
-        stage('Diagnostics') {
-            steps {
-                sh '''
-                    echo "=== Environment Diagnostics ==="
-                    echo "Current user: $(whoami)"
-                    echo "Working directory: $(pwd)"
-                    echo "PATH: $PATH"
-                    echo "=== Go Diagnostics ==="
-                    which go || echo "Go not found in PATH"
-                    go version || echo "Cannot run go version"
-                    echo "=== Home Directory ==="
-                    echo "HOME: $HOME"
-                    ls -la ~/ | head -10
-                    echo "=== Available Go installations ==="
-                    find /usr/local -name "go" 2>/dev/null || true
-                    find /usr -name "go" 2>/dev/null | grep bin | head -5 || true
-                '''
-            }
-        }
-
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
         
-        stage('Setup Go') {
+        stage('Dependencies') {
             steps {
-                script {
-                    // Install specific Go version if needed
-                    sh """
-                    go version
-                    """
-                }
+                sh 'go mod download'
             }
         }
         
-        stage('Code Format Check') {
+        stage('Format Check') {
             steps {
-                script {
-                    sh '''
-                    # Check if code is properly formatted
+                sh '''
                     if [ -n "$(gofmt -l .)" ]; then
-                        echo "Code is not properly formatted. Files needing formatting:"
+                        echo "Code needs formatting!"
                         gofmt -l .
                         exit 1
                     fi
-                    echo "Code formatting check passed!"
-                    '''
-                }
+                    echo "Formatting OK!"
+                '''
             }
         }
         
-        stage('Run Tests') {
+        stage('Tests') {
             steps {
-                script {
-                    sh '''
-                    # Run tests with coverage
-                    go test -v -race -coverprofile=coverage.out ./...
-                    go tool cover -html=coverage.out -o coverage.html
-                    '''
-                }
-            }
-            post {
-                always {
-                    // Publish test results
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: false,
-                        keepAll: true,
-                        reportDir: '.',
-                        reportFiles: 'coverage.html',
-                        reportName: 'Test Coverage Report'
-                    ])
-                }
+                sh '''
+                    go test -v -race ./...
+                '''
             }
         }
         
         stage('Build') {
             steps {
-                script {
-                    sh '''
-                    # Build the application
+                sh '''
                     go build -o myapp .
-                    '''
+                '''
+            }
+        }
+        
+        stage('Docker Build') {
+            steps {
+                script {
+                    // Define image tags
+                    def imageName = "${env.DOCKER_USERNAME}/${env.PROJECT_NAME}"
+                    def versionTag = "${imageName}:${env.BUILD_NUMBER}"
+                    def latestTag = "${imageName}:latest"
+                    
+                    echo "Building Docker image: ${versionTag}"
+                    
+                    sh """
+                    docker build -t ${versionTag} .
+                    docker tag ${versionTag} ${latestTag}
+                    """
                 }
             }
         }
         
-        stage('Docker Build & Push') {
-            environment {
-                DOCKER_IMAGE = "${DOCKER_REGISTRY}/${PROJECT_NAME}:${env.BUILD_NUMBER}"
-                DOCKER_IMAGE_LATEST = "${DOCKER_REGISTRY}/${PROJECT_NAME}:latest"
-            }
+        stage('Docker Push') {
             steps {
                 script {
-                    sh """
-                    # Build Docker image
-                    docker build -t ${DOCKER_IMAGE} .
-                    docker tag ${DOCKER_IMAGE} ${DOCKER_IMAGE_LATEST}
+                    def imageName = "${env.DOCKER_USERNAME}/${env.PROJECT_NAME}"
+                    def versionTag = "${imageName}:${env.BUILD_NUMBER}"
+                    def latestTag = "${imageName}:latest"
                     
-                    # Push to registry (ensure credentials are set up in Jenkins)
-                    docker push ${DOCKER_IMAGE}
-                    docker push ${DOCKER_IMAGE_LATEST}
-                    """
+                    withCredentials([usernamePassword(
+                        credentialsId: 'docker-hub-credentials',  // Match the ID you set in Jenkins
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        sh """
+                        # Login to Docker Hub
+                        echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+                        
+                        # Push both tags
+                        docker push ${versionTag}
+                        docker push ${latestTag}
+                        
+                        # Logout (optional)
+                        docker logout
+                        """
+                    }
                 }
             }
         }
@@ -120,16 +98,23 @@ pipeline {
     
     post {
         always {
-            // Cleanup
-            sh 'rm -f myapp coverage.out coverage.html'
-            
-          
+            sh '''
+                # Cleanup
+                rm -f myapp coverage.out 2>/dev/null || true
+                
+                # Remove Docker images to save space
+                docker images | grep "${DOCKER_USERNAME}/${PROJECT_NAME}" | awk '{print \$3}' | xargs -r docker rmi -f 2>/dev/null || true
+            '''
         }
         success {
-            echo "Pipeline executed successfully!"
+            echo "✅ Pipeline executed successfully!"
+            script {
+                def imageUrl = "https://hub.docker.com/r/${env.DOCKER_USERNAME}/${env.PROJECT_NAME}"
+                echo "Docker image pushed: ${imageUrl}"
+            }
         }
         failure {
-            echo "Pipeline failed!"
+            echo "❌ Pipeline failed!"
         }
     }
 }
