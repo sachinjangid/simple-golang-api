@@ -75,7 +75,7 @@ pipeline {
                     def latestTag = "${imageName}:latest"
                     
                     withCredentials([usernamePassword(
-                        credentialsId: 'docker-hub-credentials',  // Match the ID you set in Jenkins
+                        credentialsId: 'DOCKERHUB_CREDENTIALS',  // Match the ID you set in Jenkins
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )]) {
