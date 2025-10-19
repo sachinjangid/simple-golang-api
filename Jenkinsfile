@@ -8,6 +8,26 @@ pipeline {
     }
     
     stages {
+        stage('Diagnostics') {
+            steps {
+                sh '''
+                    echo "=== Environment Diagnostics ==="
+                    echo "Current user: $(whoami)"
+                    echo "Working directory: $(pwd)"
+                    echo "PATH: $PATH"
+                    echo "=== Go Diagnostics ==="
+                    which go || echo "Go not found in PATH"
+                    go version || echo "Cannot run go version"
+                    echo "=== Home Directory ==="
+                    echo "HOME: $HOME"
+                    ls -la ~/ | head -10
+                    echo "=== Available Go installations ==="
+                    find /usr/local -name "go" 2>/dev/null || true
+                    find /usr -name "go" 2>/dev/null | grep bin | head -5 || true
+                '''
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -103,12 +123,7 @@ pipeline {
             // Cleanup
             sh 'rm -f myapp coverage.out coverage.html'
             
-            // Notifications
-            emailext (
-                subject: "Build #${env.BUILD_NUMBER} - ${currentBuild.currentResult}",
-                body: "Project: ${env.JOB_NAME}\nBuild: ${env.BUILD_NUMBER}\nStatus: ${currentBuild.currentResult}\nURL: ${env.BUILD_URL}",
-                to: "team@yourcompany.com"
-            )
+          
         }
         success {
             echo "Pipeline executed successfully!"
